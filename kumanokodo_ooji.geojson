@@ -1,91 +1,15 @@
 {
-  "features": [
-{
   "type": "FeatureCollection",
-  "name": "KumanoKodo_Oji_Core",
   "features": [
     {
       "type": "Feature",
-      "id": "oji_takijiri",
-      "properties": {
-        "name": "滝尻王子",
-        "name_en": "Takijiri Ōji",
-        "route": "Nakahechi",
-        "class": "oji",
-        "source": "Wikidata/OSM referenced",
-        "wikidata": "Q3514339",
-        "note": "熊野古道の伝統的スタート地点"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [135.503508, 33.775297]
-      }
+      "properties": { "name": "滝尻王子", "name_en": "Takahara Oji", "note": "テスト" },
+      "geometry": { "type": "Point", "coordinates": [135.5035, 33.7753] }
     },
     {
       "type": "Feature",
-      "id": "oji_chikatsuyu",
-      "properties": {
-        "name": "近露王子",
-        "name_en": "Chikatsuyu Ōji",
-        "route": "Nakahechi",
-        "class": "oji",
-        "source": "Navitime/Local gov",
-        "note": "宿場町・近露の中心に鎮座"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [135.605608, 33.814488]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "oji_tsugizakura",
-      "properties": {
-        "name": "継桜王子",
-        "name_en": "Tsugizakura Ōji",
-        "route": "Nakahechi",
-        "class": "oji",
-        "source": "Wikipedia (ja)",
-        "note": "野中の一方杉で有名"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [135.634167, 33.828528]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "oji_hosshinmon",
-      "properties": {
-        "name": "発心門王子",
-        "name_en": "Hosshinmon Ōji",
-        "route": "Nakahechi",
-        "class": "oji",
-        "source": "Navitime/Local tourism",
-        "note": "本宮大社の神域入口（別格・五体王子）"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [135.72079, 33.861734]
-      }
-    },
-    {
-      "type": "Feature",
-      "id": "oji_fushiogami",
-      "properties": {
-        "name": "伏拝王子",
-        "name_en": "Fushiogami Ōji",
-        "route": "Nakahechi",
-        "class": "oji",
-        "source": "PeakVisor/Local tourism",
-        "note": "初めて本宮を臨む地点"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [135.757776, 33.860502]
-      }
+      "properties": { "name": "近露王子", "name_en": "Chikatsuyu Oji" },
+      "geometry": { "type": "Point", "coordinates": [135.5873, 33.7361] }
     }
   ]
-}
-  "type": "FeatureCollection"
 }
