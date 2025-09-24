@@ -17,16 +17,68 @@
   <div id="map"></div>
 
   <script>
-    // あなたのアクセストークン
-    mapboxgl.accessToken = 'pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtNmcwaXl0cjA4M2kya3BxdTF4aG80azAifQ.-6zqgbWGdGnEEeUSXr0iaA';
+  mapboxgl.accessToken = 'pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtNmcwaXl0cjA4M2kya3BxdTF4aG80azAifQ.-6zqgbWGdGnEEeUSXr0iaA';
 
-    // 地図を初期化
-    const map = new mapboxgl.Map({
-      container: 'map',
-      style: 'mapbox://styles/mapbox/outdoors-v12', // まずは既定スタイルで動作確認
-      center: [135.5035, 33.7753], // 滝尻王子あたり
-      zoom: 13
+  const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/outdoors-v12', // まず既定スタイル
+    center: [135.5035, 33.7753],
+    zoom: 13
+  });
+
+  async function loadGeoJSON(url){
+    const r = await fetch(url, {cache:'no-cache'});
+    if(!r.ok) throw new Error(`Fetch ${r.status}: ${url}`);
+    return r.json();
+  }
+
+  function addCircleLayer(id, sourceId, color){
+    map.addLayer({
+      id, type:'circle', source:sourceId,
+      paint:{
+        'circle-radius':['interpolate',['linear'],['zoom'], 8,4, 14,6],
+        'circle-color': color,
+        'circle-stroke-color':'#fff',
+        'circle-stroke-width':1
+      }
     });
-  </script>
+  }
+
+  map.on('load', async () => {
+    try {
+      // 相対パス（同じNetlifyサイト内）
+      const ojiData = await loadGeoJSON('./kumanokodo_ooji.geojson');
+      const busData = await loadGeoJSON('./kumano_nakahechi_bus_stops.geojson');
+      console.log('OJIs:', ojiData.features.length, 'BUS:', busData.features.length);
+
+      map.addSource('oji-src', { type:'geojson', data: ojiData });
+      map.addSource('bus-src', { type:'geojson', data: busData });
+
+      addCircleLayer('oji-circle', 'oji-src', '#d33'); // 赤
+      addCircleLayer('bus-circle', 'bus-src', '#2a7'); // 緑
+
+      // クリックでポップアップ
+      map.on('click','oji-circle',(e)=>{
+        const p = e.features[0].properties||{};
+        new mapboxgl.Popup({offset:12})
+          .setLngLat(e.lngLat)
+          .setHTML(`<strong>${p.name||p.name_en||'Oji'}</strong>${p.note?'<br>'+p.note:''}`)
+          .addTo(map);
+      });
+      map.on('click','bus-circle',(e)=>{
+        const p = e.features[0].properties||{};
+        const ops = Array.isArray(p.operator)?p.operator:(p.operator?[p.operator]:[]);
+        const routes = Array.isArray(p.routes)?p.routes:(p.routes?[p.routes]:[]);
+        new mapboxgl.Popup({offset:12})
+          .setLngLat(e.lngLat)
+          .setHTML(`<strong>${p.name||p.name_en||'Bus Stop'}</strong>${ops.length?'<br>運行: '+ops.join(', ') : ''}${routes.length?'<br>'+routes.join('<br>'):''}`)
+          .addTo(map);
+      });
+    } catch (err) {
+      console.error(err);
+      alert('GeoJSON読み込みエラー: ' + err.message);
+    }
+  });
+</script>
 </body>
 </html>
