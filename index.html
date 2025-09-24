@@ -4,20 +4,27 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Kumano Kodo Map (safe)</title>
+
+  <!-- v3（あなたのスタイルにも対応可）。まずは既定スタイルで動作確認 -->
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet"/>
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
-  <style>html,body,#map{height:100%;margin:0}.popup{font:12px/1.45 system-ui}</style>
+
+  <style>
+    html,body,#map{height:100%;margin:0}
+    .popup{font:12px/1.45 system-ui,-apple-system,"Segoe UI",Roboto}
+  </style>
 </head>
 <body>
 <div id="map"></div>
 <script>
+  // === 設定 ===
   mapboxgl.accessToken = 'pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtNmcwaXl0cjA4M2kya3BxdTF4aG80azAifQ.-6zqgbWGdGnEEeUSXr0iaA';
 
-  const STYLE   = 'mapbox://styles/mapbox/outdoors-v12'; // ←一旦これで
-// 例：index.html の設定部分
-const OJI_URL = 'https://kumap.netlify.app/kumanokodo_ooji.geojson?v=20240924a';
-const BUS_URL = 'https://kumap.netlify.app/kumano_nakahechi_bus_stops.geojson?v=20240924a';
-  
+  // まずは Mapbox 既定スタイルで安定動作を確認（OKになったら自分のスタイルへ差し替え）
+  const STYLE   = 'mapbox://styles/mapbox/outdoors-v12';
+  const OJI_URL = 'https://kumap.netlify.app/kumanokodo_ooji.geojson?v=20240924a';
+  const BUS_URL = 'https://kumap.netlify.app/kumano_nakahechi_bus_stops.geojson?v=20240924a';
+
   const map = new mapboxgl.Map({
     container: 'map',
     style: STYLE,
@@ -25,50 +32,62 @@ const BUS_URL = 'https://kumap.netlify.app/kumano_nakahechi_bus_stops.geojson?v=
     zoom: 13
   });
 
+  // ---- utils ----
   async function loadGeoJSON(url){
     console.log('FETCH:', url);
     const r = await fetch(url, {cache:'no-cache'});
     if(!r.ok) throw new Error(`Fetch ${r.status}: ${url}`);
-    const text = await r.text();            // Safari向けに一旦テキストで
-    try { return JSON.parse(text); }        // ここでJSON化
+    const text = await r.text();          // Safari 対策：一旦テキストで受ける
+    try { return JSON.parse(text); }
     catch(e){ throw new Error(`JSON parse failed: ${url}`); }
   }
 
-  function addCircle(id, sourceId, color, minzoom){
-    map.addLayer({
-      id, type:'circle', source:sourceId, minzoom,
+  function addCircleLayer(id, sourceId, color, minzoom){
+    const layer = {
+      id, type:'circle', source:sourceId,
       paint:{
         'circle-radius':['interpolate',['linear'],['zoom'], 8,4, 14,6],
-        'circle-color':color, 'circle-stroke-color':'#fff', 'circle-stroke-width':1
+        'circle-color':color,
+        'circle-stroke-color':'#fff',
+        'circle-stroke-width':1
       }
-    });
+    };
+    if (Number.isFinite(minzoom)) layer.minzoom = minzoom; // ← undefined を入れない
+    map.addLayer(layer);
   }
-  function addLabel(id, sourceId, textExpr, minzoom){
-    map.addLayer({
-      id, type:'symbol', source:sourceId, minzoom,
+
+  function addLabelLayer(id, sourceId, textExpr, minzoom){
+    const layer = {
+      id, type:'symbol', source:sourceId,
       layout:{
         'text-field': textExpr,
         'text-size': ['interpolate',['linear'],['zoom'], 8,11, 14,14],
-        'text-offset':[0,1.1], 'text-anchor':'top'
+        'text-offset':[0,1.1],
+        'text-anchor':'top'
       },
       paint:{'text-halo-color':'#fff','text-halo-width':1}
-    });
+    };
+    if (Number.isFinite(minzoom)) layer.minzoom = minzoom;
+    map.addLayer(layer);
   }
 
+  // ---- main ----
   map.on('load', async () => {
     try{
       const [oji, bus] = await Promise.all([loadGeoJSON(OJI_URL), loadGeoJSON(BUS_URL)]);
       console.log('OJIs:', oji.features?.length ?? 0, 'BUS:', bus.features?.length ?? 0);
 
-      map.addSource('oji-src',{type:'geojson',data:oji});
-      map.addSource('bus-src',{type:'geojson',data:bus});
+      // 1) ソースを先に追加
+      map.addSource('oji-src', { type:'geojson', data: oji });
+      map.addSource('bus-src', { type:'geojson', data: bus });
 
-      addCircle('oji-circle','oji-src','#d33');
-      addLabel('oji-label','oji-src',['coalesce',['get','name'],['get','name_en']]);
+      // 2) その後にレイヤーを追加（丸＋ラベル）
+      addCircleLayer('oji-circle','oji-src','#d33');                                              // 常時
+      addLabelLayer('oji-label','oji-src',['coalesce',['get','name'],['get','name_en']]);        // 常時
+      addCircleLayer('bus-circle','bus-src','#2a7');                                              // 常時
+      addLabelLayer('bus-label','bus-src',['get','name'], 11);                                    // z>=11
 
-      addCircle('bus-circle','bus-src','#2a7');
-      addLabel('bus-label','bus-src',['get','name'],11);
-
+      // 3) ポップアップ（丸レイヤーにバインド）
       map.on('click','oji-circle',(e)=>{
         const p=e.features[0].properties||{};
         const lines=[`<strong>${p.name||p.name_en||'Oji'}</strong>`];
@@ -84,6 +103,12 @@ const BUS_URL = 'https://kumap.netlify.app/kumano_nakahechi_bus_stops.geojson?v=
         if(ops.length)lines.push(`運行: ${ops.join(', ')}`);
         if(routes.length)lines.push(routes.join('<br>'));
         new mapboxgl.Popup({offset:12,className:'popup'}).setLngLat(e.lngLat).setHTML(lines.join('<br>')).addTo(map);
+      });
+
+      // UX
+      ['oji-circle','bus-circle','oji-label','bus-label'].forEach(id=>{
+        map.on('mouseenter', id, ()=> map.getCanvas().style.cursor='pointer');
+        map.on('mouseleave', id, ()=> map.getCanvas().style.cursor='');
       });
     }catch(err){
       console.error('GeoJSON load failed:', err);
