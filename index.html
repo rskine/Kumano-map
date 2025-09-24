@@ -1,54 +1,32 @@
-<script>
-  // --- 固定設定（クエリ使わない） ---
-  const TOKEN   = 'pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtNmcwaXl0cjA4M2kya3BxdTF4aG80azAifQ.-6zqgbWGdGnEEeUSXr0iaA';
-  const STYLE   = 'mapbox://styles/mapbox/outdoors-v12';   // ←まずは既定スタイルで
-  const OJI_URL = './kumanokodo_ooji.geojson';             // ←相対パスに
-  const BUS_URL = './kumano_nakahechi_bus_stops.geojson';  // ←相対パスに
-  const CENTER  = [135.5035, 33.7753];
-  const ZOOM    = 13;
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Kumano Kodo Map</title>
 
-  mapboxgl.accessToken = TOKEN;
-  const map = new mapboxgl.Map({ container:'map', style:STYLE, center:CENTER, zoom:ZOOM });
+  <!-- Mapbox GL JS のCSSとJSを必ずここで読み込む -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet"/>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 
-  async function loadGeoJSON(url){
-    console.log('FETCH:', url);
-    const r = await fetch(url, {cache:'no-cache'});
-    if(!r.ok) throw new Error(`Fetch ${r.status}: ${url}`);
-    const txt = await r.text();              // ←一旦テキストで読む
-    console.log('LEN:', url, txt.length);    // 長さもログ
-    const data = JSON.parse(txt);            // ここでJSON化（失敗したら行番号つきで落ちる）
-    if(!data || data.type!=='FeatureCollection' || !Array.isArray(data.features)){
-      throw new Error(`Not a FeatureCollection: ${url}`);
-    }
-    return data;
-  }
+  <style>
+    html,body,#map { height:100%; margin:0; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
 
-  function addCircleLayer(id, sourceId, color){
-    map.addLayer({
-      id, type:'circle', source:sourceId,
-      paint:{
-        'circle-radius':['interpolate',['linear'],['zoom'], 8,4, 14,6],
-        'circle-color':color, 'circle-stroke-color':'#fff', 'circle-stroke-width':1
-      }
+  <script>
+    // あなたのアクセストークン
+    mapboxgl.accessToken = 'pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtNmcwaXl0cjA4M2kya3BxdTF4aG80azAifQ.-6zqgbWGdGnEEeUSXr0iaA';
+
+    // 地図を初期化
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/outdoors-v12', // まずは既定スタイルで動作確認
+      center: [135.5035, 33.7753], // 滝尻王子あたり
+      zoom: 13
     });
-  }
-
-  map.on('load', async () => {
-    try{
-      const [ojiData, busData] = await Promise.all([loadGeoJSON(OJI_URL), loadGeoJSON(BUS_URL)]);
-      console.log('OJIs:', ojiData.features.length, 'BUS:', busData.features.length);
-      map.addSource('oji-src', {type:'geojson', data:ojiData});
-      map.addSource('bus-src', {type:'geojson', data:busData});
-      addCircleLayer('oji-circle','oji-src','#d33');
-      addCircleLayer('bus-circle','bus-src','#2a7');
-    }catch(err){
-      console.error('GeoJSON load failed:', err);
-      // 画面にも原因を出す
-      const div = document.createElement('div');
-      div.style.cssText = 'position:absolute;left:8px;top:8px;background:#fff;padding:8px;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.15);max-width:320px;font:12px/1.4 system-ui';
-      div.innerHTML = `GeoJSONの読み込みエラー<br><code>${String(err.message)}</code>`;
-      document.body.appendChild(div);
-      alert('GeoJSONの読み込みでエラー: ' + err.message);
-    }
-  });
-</script>
+  </script>
+</body>
+</html>
