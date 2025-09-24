@@ -19,12 +19,12 @@
   <script>
   mapboxgl.accessToken = 'pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtNmcwaXl0cjA4M2kya3BxdTF4aG80azAifQ.-6zqgbWGdGnEEeUSXr0iaA';
 
-  const map = new mapboxgl.Map({
-    container: 'map',
-    style: 'mapbox://styles/mapbox/outdoors-v12', // まず既定スタイル
-    center: [135.5035, 33.7753],
-    zoom: 13
-  });
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/rskine/cmfnmhdf0007o01sj1pio430k', // ←戻す
+  center: [135.5035, 33.7753],
+  zoom: 13
+});
 
   async function loadGeoJSON(url){
     const r = await fetch(url, {cache:'no-cache'});
