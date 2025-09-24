@@ -14,9 +14,10 @@
   mapboxgl.accessToken = 'pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtNmcwaXl0cjA4M2kya3BxdTF4aG80azAifQ.-6zqgbWGdGnEEeUSXr0iaA';
 
   const STYLE   = 'mapbox://styles/mapbox/outdoors-v12'; // ←一旦これで
-  const OJI_URL = 'https://kumap.netlify.app/kumanokodo_ooji.geojson';             // ←絶対URL
-  const BUS_URL = 'https://kumap.netlify.app/kumano_nakahechi_bus_stops.geojson';  // ←絶対URL
-
+// 例：index.html の設定部分
+const OJI_URL = 'https://kumap.netlify.app/kumanokodo_ooji.geojson?v=20240924a';
+const BUS_URL = 'https://kumap.netlify.app/kumano_nakahechi_bus_stops.geojson?v=20240924a';
+  
   const map = new mapboxgl.Map({
     container: 'map',
     style: STYLE,
