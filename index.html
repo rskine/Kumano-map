@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Kumano Kodo Map</title>
+  <title>Kumano Kodo Map (debug circles)</title>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet"/>
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
   <style>
@@ -14,84 +14,129 @@
 <body>
 <div id="map"></div>
 <script>
-  // ====== 設定 ======
-  const CFG = {
-    token: 'pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtNmcwaXl0cjA4M2kya3BxdTF4aG80azAifQ.-6zqgbWGdGnEEeUSXr0iaA',  // ←あなたのMapbox Public Tokenに置き換えてください
-    style: 'mapbox://styles/mapbox/outdoors-v12', // ←Mapbox StudioでpublishしたスタイルIDに置き換え
-    center: [135.65, 33.84],
-    zoom: 10,
-    ojiUrl: './kumanokodo_ooji.geojson',
-    busUrl: './kumano_nakahechi_bus_stops.geojson'
-  };
+  // ---- 固定設定（最も確実な形に） ----
+  const TOKEN = 'pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtNmcwaXl0cjA4M2kya3BxdTF4aG80azAifQ.-6zqgbWGdGnEEeUSXr0iaA';
+  const STYLE = 'mapbox://styles/mapbox/outdoors-v12'; // 既定スタイル（アイコン/フォント完備）
+  const OJI_URL = 'https://kumap.netlify.app/kumanokodo_ooji.geojson';
+  const BUS_URL = 'https://kumap.netlify.app/kumano_nakahechi_bus_stops.geojson';
 
-  mapboxgl.accessToken = CFG.token;
+  mapboxgl.accessToken = TOKEN;
   const map = new mapboxgl.Map({
     container: 'map',
-    style: CFG.style,
-    center: CFG.center,
-    zoom: CFG.zoom
+    style: STYLE,
+    center: [135.65, 33.84],
+    zoom: 10
   });
+
+  // ---- まず fetch で中身を取得してバリデーション → addSource(dataオブジェクト) ----
+  async function loadGeoJSON(url) {
+    const r = await fetch(url, {cache: 'no-cache'});
+    if (!r.ok) throw new Error(`Fetch failed ${r.status} for ${url}`);
+    const data = await r.json();
+    if (!data || data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
+      throw new Error(`Not a FeatureCollection: ${url}`);
+    }
+    return data;
+  }
+
+  function fitToFeatures(features) {
+    // GeoJSON座標の多くが [lon, lat] であることを前提に bbox を計算
+    let minLon= Infinity, minLat= Infinity, maxLon= -Infinity, maxLat= -Infinity;
+    for (const f of features) {
+      if (!f.geometry) continue;
+      const g = f.geometry;
+      const push = (lon, lat) => {
+        if (isFinite(lon) && isFinite(lat)) {
+          if (lon < minLon) minLon = lon;
+          if (lat < minLat) minLat = lat;
+          if (lon > maxLon) maxLon = lon;
+          if (lat > maxLat) maxLat = lat;
+        }
+      };
+      if (g.type === 'Point') {
+        const [lon, lat] = g.coordinates;
+        push(lon, lat);
+      } else if (g.type === 'MultiPoint' || g.type === 'LineString') {
+        for (const [lon, lat] of g.coordinates) push(lon, lat);
+      } else if (g.type === 'MultiLineString' || g.type === 'Polygon') {
+        for (const ring of g.coordinates) for (const [lon, lat] of ring) push(lon, lat);
+      } else if (g.type === 'MultiPolygon') {
+        for (const poly of g.coordinates) for (const ring of poly) for (const [lon, lat] of ring) push(lon, lat);
+      }
+    }
+    if (isFinite(minLon) && isFinite(minLat) && isFinite(maxLon) && isFinite(maxLat)) {
+      map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 40, duration: 0 });
+    }
+  }
 
   map.on('load', async () => {
-    // 王子（赤い丸）
-map.addLayer({
-  id: 'oji-circle',
-  type: 'circle',
-  source: 'oji-src',
-  paint: {
-    'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 4, 14, 6],
-    'circle-color': '#d33',
-    'circle-stroke-color': '#fff',
-    'circle-stroke-width': 1
-  }
-});
+    try {
+      const [ojiData, busData] = await Promise.all([
+        loadGeoJSON(OJI_URL),
+        loadGeoJSON(BUS_URL)
+      ]);
 
-// バス停（緑の丸） ※一旦 minzoom なしで表示
-map.addLayer({
-  id: 'bus-circle',
-  type: 'circle',
-  source: 'bus-src',
-  paint: {
-    'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3.5, 14, 5],
-    'circle-color': '#2a7',
-    'circle-stroke-color': '#fff',
-    'circle-stroke-width': 1
-  }
-});
+      console.log('OJIs features:', ojiData.features.length);
+      console.log('BUS  features:', busData.features.length);
 
-    // ポップアップ（王子）
-    map.on('click','oji',(e)=>{
-      const f = e.features[0], p = f.properties||{};
-      const html = `
-        <strong>${p.name||p.name_en||'Oji'}</strong><br>
-        ${p.name_en?`${p.name_en}<br>`:''}
-        ${p.note?`${p.note}<br>`:''}
-        ${p.official_url?`<a href="${p.official_url}" target="_blank">公式ページ</a>`:''}
-      `;
-      new mapboxgl.Popup({offset:12,className:'popup'})
-        .setLngLat(e.lngLat).setHTML(html).addTo(map);
-    });
+      // いったん OJI と BUS の bbox を合わせて表示域に
+      fitToFeatures(ojiData.features.concat(busData.features));
 
-    // ポップアップ（バス停）
-    map.on('click','bus',(e)=>{
-      const f = e.features[0], p = f.properties||{};
-      const ops = Array.isArray(p.operator)?p.operator:(p.operator?[p.operator]:[]);
-      const routes = Array.isArray(p.routes)?p.routes:(p.routes?[p.routes]:[]);
-      const html = `
-        <strong>${p.name||p.name_en||'Bus Stop'}</strong><br>
-        ${ops.length?`運行: ${ops.join(', ')}<br>`:''}
-        ${routes.length?routes.join('<br>'):''}
-      `;
-      new mapboxgl.Popup({offset:12,className:'popup'})
-        .setLngLat(e.lngLat).setHTML(html).addTo(map);
-    });
+      // --- 王子：circleで描画 ---
+      map.addSource('oji-src', { type: 'geojson', data: ojiData });
+      map.addLayer({
+        id: 'oji-circle',
+        type: 'circle',
+        source: 'oji-src',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 4, 14, 6],
+          'circle-color': '#d33',
+          'circle-stroke-color': '#fff',
+          'circle-stroke-width': 1
+        }
+      });
 
-    // カーソル変更
-    ['oji','bus'].forEach(id=>{
-      map.on('mouseenter',id,()=>map.getCanvas().style.cursor='pointer');
-      map.on('mouseleave',id,()=>map.getCanvas().style.cursor='');
-    });
+      // --- バス停：circleで描画（minzoom外す） ---
+      map.addSource('bus-src', { type: 'geojson', data: busData });
+      map.addLayer({
+        id: 'bus-circle',
+        type: 'circle',
+        source: 'bus-src',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3.5, 14, 5],
+          'circle-color': '#2a7',
+          'circle-stroke-color': '#fff',
+          'circle-stroke-width': 1
+        }
+      });
+
+      // --- クリックでポップアップ（丸レイヤーを対象に） ---
+      map.on('click','oji-circle',(e)=>{
+        const p = e.features[0].properties||{};
+        new mapboxgl.Popup({offset:12, className:'popup'})
+          .setLngLat(e.lngLat)
+          .setHTML(`<strong>${p.name||p.name_en||'Oji'}</strong><br>${p.note||''}${p.official_url?`<br><a href="${p.official_url}" target="_blank">公式</a>`:''}`)
+          .addTo(map);
+      });
+      map.on('click','bus-circle',(e)=>{
+        const p = e.features[0].properties||{};
+        const ops = Array.isArray(p.operator)?p.operator:(p.operator?[p.operator]:[]);
+        const routes = Array.isArray(p.routes)?p.routes:(p.routes?[p.routes]:[]);
+        new mapboxgl.Popup({offset:12, className:'popup'})
+          .setLngLat(e.lngLat)
+          .setHTML(`<strong>${p.name||p.name_en||'Bus Stop'}</strong><br>${ops.length?`運行: ${ops.join(', ')}`:''}${routes.length?`<br>${routes.join('<br>')}`:''}`)
+          .addTo(map);
+      });
+
+      // 便利デバッグ：最後に現在のレイヤー一覧出力
+      console.log('Layers:', map.getStyle().layers.map(l=>l.id));
+    } catch (err) {
+      console.error('Load error:', err);
+      alert('GeoJSONの読み込みでエラー: ' + err.message);
+    }
   });
+
+  map.on('error', e => console.error('Map error:', e && e.error || e));
 </script>
 </body>
 </html>
