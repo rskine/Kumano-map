@@ -6,9 +6,8 @@
   <title>Kumano Kodo Map</title>
 
   <!-- Safariでも安定する v2.15.0 を使用 -->
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet"/>
-  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet"/>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
   <style>
     html,body,#map{height:100%;margin:0}
     .popup{font:12px/1.45 system-ui,-apple-system,"Segoe UI",Roboto}
@@ -18,7 +17,7 @@
 <div id="map"></div>
 <script>
   // === 固定設定（あなたのトークン＆スタイルに戻す） ===
-  mapboxgl.accessToken = 'pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtNmcwaXl0cjA4M2kya3BxdTF4aG80azAifQ.-6zqgbWGdGnEEeUSXr0iaA';
+mapboxgl.accessToken = 'pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtNmcwaXl0cjA4M2kya3BxdTF4aG80azAifQ.-6zqgbWGdGnEEeUSXr0iaA';
   const STYLE   = 'mapbox://styles/rskine/cmfnmhdf0007o01sj1pio430k'; // ←あなたのスタイル
   const OJI_URL = './kumanokodo_ooji.geojson';
   const BUS_URL = './kumano_nakahechi_bus_stops.geojson';
