@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Kumano Kodo Map (debug circles)</title>
+  <title>Kumano Kodo Map (fixed config)</title>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet"/>
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
   <style>
@@ -14,103 +14,47 @@
 <body>
 <div id="map"></div>
 <script>
-  // ---- 固定設定（最も確実な形に） ----
-  const TOKEN = 'pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtNmcwaXl0cjA4M2kya3BxdTF4aG80azAifQ.-6zqgbWGdGnEEeUSXr0iaA';
-  const STYLE = 'mapbox://styles/mapbox/outdoors-v12'; // 既定スタイル（アイコン/フォント完備）
+  // ---- 固定設定（クエリは使わない）----
+  const TOKEN   = 'pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtNmcwaXl0cjA4M2kya3BxdTF4aG80azAifQ.-6zqgbWGdGnEEeUSXr0iaA';
+  const STYLE   = 'mapbox://styles/rskine/cmfnmhdf0007o01sj1pio430k'; // ←あなたのスタイル
   const OJI_URL = 'https://kumap.netlify.app/kumanokodo_ooji.geojson';
   const BUS_URL = 'https://kumap.netlify.app/kumano_nakahechi_bus_stops.geojson';
+  const CENTER  = [135.5035, 33.7753]; // 滝尻王子付近
+  const ZOOM    = 13;
 
   mapboxgl.accessToken = TOKEN;
-  const map = new mapboxgl.Map({
-    container: 'map',
-    style: STYLE,
-    center: [135.65, 33.84],
-    zoom: 10
-  });
+  const map = new mapboxgl.Map({ container:'map', style:STYLE, center:CENTER, zoom:ZOOM });
 
-  // ---- まず fetch で中身を取得してバリデーション → addSource(dataオブジェクト) ----
-  async function loadGeoJSON(url) {
-    const r = await fetch(url, {cache: 'no-cache'});
-    if (!r.ok) throw new Error(`Fetch failed ${r.status} for ${url}`);
+  async function loadGeoJSON(url){
+    const r = await fetch(url, {cache:'no-cache'});
+    if(!r.ok) throw new Error(`Fetch ${r.status}: ${url}`);
     const data = await r.json();
-    if (!data || data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
+    if(!data || data.type!=='FeatureCollection' || !Array.isArray(data.features)){
       throw new Error(`Not a FeatureCollection: ${url}`);
     }
     return data;
   }
 
-  function fitToFeatures(features) {
-    // GeoJSON座標の多くが [lon, lat] であることを前提に bbox を計算
-    let minLon= Infinity, minLat= Infinity, maxLon= -Infinity, maxLat= -Infinity;
-    for (const f of features) {
-      if (!f.geometry) continue;
-      const g = f.geometry;
-      const push = (lon, lat) => {
-        if (isFinite(lon) && isFinite(lat)) {
-          if (lon < minLon) minLon = lon;
-          if (lat < minLat) minLat = lat;
-          if (lon > maxLon) maxLon = lon;
-          if (lat > maxLat) maxLat = lat;
-        }
-      };
-      if (g.type === 'Point') {
-        const [lon, lat] = g.coordinates;
-        push(lon, lat);
-      } else if (g.type === 'MultiPoint' || g.type === 'LineString') {
-        for (const [lon, lat] of g.coordinates) push(lon, lat);
-      } else if (g.type === 'MultiLineString' || g.type === 'Polygon') {
-        for (const ring of g.coordinates) for (const [lon, lat] of ring) push(lon, lat);
-      } else if (g.type === 'MultiPolygon') {
-        for (const poly of g.coordinates) for (const ring of poly) for (const [lon, lat] of ring) push(lon, lat);
+  function addCircleLayer(id, sourceId, color){
+    map.addLayer({
+      id, type:'circle', source:sourceId,
+      paint:{
+        'circle-radius':['interpolate',['linear'],['zoom'], 8,4, 14,6],
+        'circle-color':color, 'circle-stroke-color':'#fff', 'circle-stroke-width':1
       }
-    }
-    if (isFinite(minLon) && isFinite(minLat) && isFinite(maxLon) && isFinite(maxLat)) {
-      map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 40, duration: 0 });
-    }
+    });
   }
 
   map.on('load', async () => {
-    try {
-      const [ojiData, busData] = await Promise.all([
-        loadGeoJSON(OJI_URL),
-        loadGeoJSON(BUS_URL)
-      ]);
+    try{
+      const [ojiData, busData] = await Promise.all([loadGeoJSON(OJI_URL), loadGeoJSON(BUS_URL)]);
+      console.log('OJIs:', ojiData.features.length, 'BUS:', busData.features.length);
 
-      console.log('OJIs features:', ojiData.features.length);
-      console.log('BUS  features:', busData.features.length);
+      map.addSource('oji-src', {type:'geojson', data:ojiData});
+      map.addSource('bus-src', {type:'geojson', data:busData});
+      addCircleLayer('oji-circle','oji-src','#d33');
+      addCircleLayer('bus-circle','bus-src','#2a7');
 
-      // いったん OJI と BUS の bbox を合わせて表示域に
-      fitToFeatures(ojiData.features.concat(busData.features));
-
-      // --- 王子：circleで描画 ---
-      map.addSource('oji-src', { type: 'geojson', data: ojiData });
-      map.addLayer({
-        id: 'oji-circle',
-        type: 'circle',
-        source: 'oji-src',
-        paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 4, 14, 6],
-          'circle-color': '#d33',
-          'circle-stroke-color': '#fff',
-          'circle-stroke-width': 1
-        }
-      });
-
-      // --- バス停：circleで描画（minzoom外す） ---
-      map.addSource('bus-src', { type: 'geojson', data: busData });
-      map.addLayer({
-        id: 'bus-circle',
-        type: 'circle',
-        source: 'bus-src',
-        paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3.5, 14, 5],
-          'circle-color': '#2a7',
-          'circle-stroke-color': '#fff',
-          'circle-stroke-width': 1
-        }
-      });
-
-      // --- クリックでポップアップ（丸レイヤーを対象に） ---
       map.on('click','oji-circle',(e)=>{
         const p = e.features[0].properties||{};
         new mapboxgl.Popup({offset:12, className:'popup'})
@@ -127,16 +71,11 @@
           .setHTML(`<strong>${p.name||p.name_en||'Bus Stop'}</strong><br>${ops.length?`運行: ${ops.join(', ')}`:''}${routes.length?`<br>${routes.join('<br>')}`:''}`)
           .addTo(map);
       });
-
-      // 便利デバッグ：最後に現在のレイヤー一覧出力
-      console.log('Layers:', map.getStyle().layers.map(l=>l.id));
-    } catch (err) {
-      console.error('Load error:', err);
+    }catch(err){
+      console.error('GeoJSON load failed:', err);
       alert('GeoJSONの読み込みでエラー: ' + err.message);
     }
   });
-
-  map.on('error', e => console.error('Map error:', e && e.error || e));
 </script>
 </body>
 </html>
