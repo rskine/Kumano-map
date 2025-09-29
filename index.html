@@ -71,6 +71,25 @@
     map.addLayer(layer);
   }
 
+
+  function fitToFeatures(features) {
+  let minLon=Infinity,minLat=Infinity,maxLon=-Infinity,maxLat=-Infinity;
+  for (const f of features) {
+    const g=f.geometry; if(!g) continue;
+    const put=(lon,lat)=>{minLon=Math.min(minLon,lon);minLat=Math.min(minLat,lat);
+                          maxLon=Math.max(maxLon,lon);maxLat=Math.max(maxLat,lat);};
+    if (g.type==='Point') { const [lon,lat]=g.coordinates; put(lon,lat); }
+    if (g.type==='MultiPoint'||g.type==='LineString')
+      for(const [lon,lat] of g.coordinates) put(lon,lat);
+  }
+  if (isFinite(minLon)) map.fitBounds([[minLon,minLat],[maxLon,maxLat]], {padding:40});
+}
+
+map.on('load', async () => {
+  const [oji, bus] = await Promise.all([loadGeoJSON(OJI_URL), loadGeoJSON(BUS_URL)]);
+  // … addSource / addLayer の後に
+  fitToFeatures(oji.features.concat(bus.features));
+});
   // ---- main ----
   map.on('load', async () => {
     try{
