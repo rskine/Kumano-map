@@ -1,89 +1,49 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kumano Map with Geolocation</title>
-  <!-- Mapbox GL JS -->
-  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      width: 100%;
-    }
-    #map {
-      width: 100%;
-      height: 100vh;
-    }
-    .mapboxgl-ctrl button {
-      font-size: 14px;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kumano test</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
+  <style>html,body,#map{height:100%;margin:0}</style>
 </head>
 <body>
-  <div id="map"></div>
+<div id="map"></div>
+<script>
+  // 1) あなたのトークン
+  mapboxgl.accessToken = 'pk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
 
-  <script>
-    // === 1. Mapbox のアクセストークン ===
-    mapboxgl.accessToken = "pk.eyJ1IjoicnNraW5lIiwiYSI6ImNtZzRxYnlxbTFpcDQyanNjbmhxOTl3eGgifQ._D-ZDHaaFf-QO-zobCUGjA";
+  // 2) まずは既定スタイルでテスト（→ OKなら下の YOUR_STYLE に切替）
+  const FALLBACK_STYLE = 'mapbox://styles/mapbox/outdoors-v12';
+  const YOUR_STYLE     = 'mapbox://styles/rskine/<<あなたのStyle ID>>';
 
-    // === 2. 地図の初期位置とズーム設定 ===
-    const map = new mapboxgl.Map({
-      container: 'map',
-      style: 'mapbox://styles/rskine/cmg4ts1xl00d901rhcx9xb8v7', // ← あなたのStyle URL
-      center: [135.617432, 33.742288], // 初期表示中心（経度, 緯度）
-      zoom: 10.5, // 初期ズーム
-      pitch: 0, // 俯瞰角度（0〜60）
-      bearing: 0 // 方角（0=北を上）
-    });
+  const map = new mapboxgl.Map({
+    container: 'map',
+    style: FALLBACK_STYLE,              // ← まずは既定で
+    center: [135.5035, 33.7753],
+    zoom: 12
+  });
 
-    // === 3. ズーム・回転コントロール ===
-    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+  // ズーム/回転/現在地（現在地は iframe だと許可が必要）
+  map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+  const geo = new mapboxgl.GeolocateControl({
+    positionOptions:{enableHighAccuracy:true},
+    trackUserLocation:true, showUserHeading:true
+  });
+  map.addControl(geo,'top-right');
 
-    // === 4. 現在地ボタン ===
-    const geolocate = new mapboxgl.GeolocateControl({
-      positionOptions: {
-        enableHighAccuracy: true
-      },
-      trackUserLocation: true,   // 移動に追従
-      showUserHeading: true      // 向きを表示
-    });
-    map.addControl(geolocate, 'top-right');
-
-    // === 5. ページ読み込み後、自動で現在地取得したい場合（任意） ===
-    map.on('load', () => {
-      // 初回だけ現在地ボタンを「押した」のと同じ動作にする
-      geolocate.trigger();
-    });
-
-    // === 6. GeoJSON レイヤー（例） ===
-    // 必要に応じてあなたの bus.geojson などを読み込み
-    map.on('load', () => {
-      map.addSource('busStops', {
-        type: 'geojson',
-        data: './kumano_nakahechi_bus_stops.geojson'
-      });
-
-      map.addLayer({
-        id: 'busStops',
-        type: 'symbol',
-        source: 'busStops',
-        layout: {
-          'icon-image': 'bus', // Mapbox Style Editorで定義したアイコン名
-          'icon-size': 1.0,
-          'icon-allow-overlap': true,
-          'text-field': ['get', 'name'],
-          'text-offset': [0, 1.2],
-          'text-size': 12
-        },
-        paint: {
-          'text-color': '#333'
-        }
-      });
-    });
-  </script>
+  // 3) 既定スタイルが描けたら自分のスタイルに切り替え
+  map.on('load', async () => {
+    try {
+      // タイル疎通だけ確認
+      await map.setStyle(YOUR_STYLE);
+    } catch (e) {
+      console.error('Style load error:', e);
+      alert('スタイルの読み込みに失敗：トークンのURL制限/Publish/StyleID を確認してね');
+      // 失敗しても既定スタイルは表示されたまま
+    }
+  });
+</script>
 </body>
 </html>
